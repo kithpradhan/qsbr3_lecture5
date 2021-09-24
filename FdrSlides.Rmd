@@ -1,0 +1,229 @@
+
+
+
+---
+title: "FDR"
+output: slidy_presentation
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## A simple example when there IS signal
+
+
+What if we sampled 
+
+- 10 observations from a normal(mean=**0**,sd=1.0) distribution
+
+- 10 observations from a normal(mean=**1.5**,sd=1.0)
+
+
+Would a t-test be able to detect a significant difference between the two?
+
+## A simple example when there IS signal
+
+```{r, echo=T}
+
+x1 = rnorm(n=10, m=0, sd=1)
+x2 = rnorm(n=10, m=1.5, sd=1)
+
+print(x1)
+print(x2)
+
+
+```
+
+## A simple example when there IS signal
+
+```{r, echo=T}
+
+#use h0 to get the proper range
+h0 = hist(c(x1, x2), breaks=10, plot=F)
+h1 = hist(x1, breaks=h0$breaks, plot=F)
+h2 = hist(x2, breaks=h0$breaks, plot=F)
+plot(h1, col=rgb(1, 0, 0, .25), ylim=c(0, max(h0$counts)), main="")
+plot(h2, col=rgb(0, 0, 1, .25), add=T)
+
+
+```
+
+## A simple example when there IS signal
+```{r, echo=T}
+  res = t.test(x1, x2)
+  print(res)
+  
+  
+```
+
+## A simple example when there IS signal
+
+What if we did this 1000 times?
+
+```{r, echo=T}
+  testSignal = function(...){
+    x1 = rnorm(n=10, m=0, sd=1)
+    x2 = rnorm(n=10, m=1.5, sd=1)
+    res = t.test(x1, x2)
+    res$p.value
+  }
+
+  N=1000
+  pvals.sig = sapply(1:N, testSignal)
+  hist(pvals.sig, breaks = seq(0,1, length=100))
+ 
+  #how many results have a pval < 0.05?
+  sum(pvals.sig < 0.05)
+ 
+```
+
+## A simple example when there IS signal
+
+Out of `r N` tests we successfully rejected the null `r sum(pvals.sig < 0.05)` times (true positives). A pretty powerful test and we found many significant results.
+
+
+## A simple example when there is NO signal
+
+This time we sample 
+
+- 10 obs from a Normal(mu=0,sd=1.0)
+
+- 10 obs from a Normal(mu=0,sd=1.0)
+
+Both samples come from the same distribution.  Will a t-test give us a significant p-value?
+
+```{r, echo=T}
+    x1 = rnorm(n=10, m=0, sd=1)
+    x2 = rnorm(n=10, m=0, sd=1)
+    res = t.test(x1, x2)
+    print(res)
+    
+```
+
+
+## A simple example when there is NO signal
+
+What if we repeated it `r N` times?
+
+```{r, echo=T}
+  testNoSignal = function(...){
+    x1 = rnorm(n=10, m=0, sd=1)
+    x2 = rnorm(n=10, m=0, sd=1)
+    res = t.test(x1, x2)
+    res$p.value
+  }
+  pvals.nosig = sapply(1:N, testNoSignal)
+  hist(pvals.nosig, breaks = seq(0,1, length=100))
+ 
+  #how many results have a pval < 0.05?
+  n1 = sum(pvals.nosig < 0.05)
+  print(n1)
+```
+
+
+## A simple example when there is NO signal
+
+This time there are `r n1` tests where the null was incorrectly rejected (false positives).  `r n1` out of `r N` is  `r n1/N*100`%, which is pretty much what we expect when we choose a significance level(alpha) of 0.05.
+
+
+## a simple example with both
+
+In the real world, we don't know which datasets have signal and which do not.  When going through results we want a selection criteria that minimizes the false positives, but is also able to find real signal.  If we set our alpha too low (bonferroni) we'll miss out on a lot of the interesting results.  If we don't do anything, we'll be dealing with a lot of garbage.  FDR is a good compromise.
+
+
+## a simple example with both
+Let's look at the histogram of the pvals when we mix the two datasets together.
+
+````{r, echo=T}
+  pvals.both = c(pvals.sig, pvals.nosig)
+  hist(pvals.both, breaks=seq(0, 1, length=100))
+
+```
+
+
+## a simple example with both
+
+if we do nothing, and just select the results with an unadjusted pval < 0.05, 
+we'll wind up with `r sum(pvals.both < 0.05)` positive results.  
+
+- true positives:  `r sum(pvals.sig < 0.05)`
+
+- false positives:  `r sum(pvals.nosig < 0.05)`
+
+
+
+## a simple example with both
+
+if we use bonferonni, and just select the results with an unadjusted pval < 0.05/`r N` = `r format(0.05/N, scientific=F)`, 
+we'll wind up with `r sum(pvals.both < 0.05/N)` positive results.  
+
+- true positives:  `r sum(pvals.sig < 0.05/N)`
+
+- false positives:  `r sum(pvals.nosig < 0.05/N)`
+
+```{r, echo=F}
+qvals.both = p.adjust(pvals.both, method="fdr")
+n1 = sum(qvals.both < 0.05)
+n2 = sum(qvals.both[1:N] < 0.05)
+n3 = sum(qvals.both[-(1:N)] < 0.05)
+```
+## a simple example with both
+
+if we use FDR and select those with an adjusted qval < 0.05, 
+we'll wind up with `r n1` positive results.  
+
+- true positives:  `r n2`
+
+- false positives:  `r n3`
+
+
+
+
+
+
+## a simple example with both
+
+In 'omics' studies, and most studies in general, the signal we're trying to find makes up a very small portion of the dataset we're searching through.  what happens when the ratio of signal/nosignal changes?
+
+
+```{r, echo=T}
+
+#return the numbers of true/false positives when selecting from 
+#unadjusted, bonferroni, FDR
+checkSignificance = function(N1 = 1000, N2 = 10000, alpha=0.05){
+  pvals.sig = sapply(1:N1, testSignal)
+  pvals.nosig = sapply(1:N2, testNoSignal)
+  pvals.both = c(pvals.sig, pvals.nosig)  
+  qvals.both = p.adjust(pvals.both, method="fdr")  
+    
+  c(
+    N1=N1, N2=N2, 
+    TP.unadj=sum(pvals.sig < alpha), 
+    FP.unadj=sum(pvals.nosig < alpha),
+    TP.bh=sum(pvals.sig < alpha/(N1+N2)), 
+    FP.bh=sum(pvals.nosig < alpha/(N1+N2)), 
+    TP.fdr=sum(qvals.both[1:N1] < alpha), 
+    FP.fdr=sum(qvals.both[-(1:N1)] < alpha)
+  ) 
+}
+ 
+
+ 
+```
+
+
+## a simple example with both
+
+```{r, echo=T}
+
+  rbind(
+    checkSignificance(1000, 1000, 0.05),
+    checkSignificance(1000, 5000, 0.05),
+    checkSignificance(1000, 10000, 0.05),
+    checkSignificance(1000, 20000, 0.05)  
+  )
+
+```
