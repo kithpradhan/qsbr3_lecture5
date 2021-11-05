@@ -137,7 +137,7 @@ In the real world, we don't know which datasets have signal and which do not.  W
 ## a simple example with both
 Let's look at the histogram of the pvals when we mix the two datasets together.
 
-````{r, echo=T}
+```{r, echo=T}
   pvals.both = c(pvals.sig, pvals.nosig)
   hist(pvals.both, breaks=seq(0, 1, length=100))
 
