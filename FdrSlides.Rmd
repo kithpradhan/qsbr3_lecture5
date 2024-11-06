@@ -41,7 +41,7 @@ print(x2)
 ## A simple example when there IS signal
 
 ```{r, echo=T}
-
+#2024
 #use h0 to get the proper range
 h0 = hist(c(x1, x2), breaks=10, plot=F)
 h1 = hist(x1, breaks=h0$breaks, plot=F)
